@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Loki Home • Nature Dash</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link rel="stylesheet" href="style.css" />
+
+  <!-- MQTT over WebSocket -->
+  <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
+  <!-- Chart.js for usage graph -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script defer src="app.js"></script>
+</head>
+<body>
+  <div class="app">
+
+    <!-- HEADER -->
+    <header class="topbar">
+      <div class="brand">
+        <div class="leaf"></div>
+        <span>Loki Home</span>
+      </div>
+      <div class="status-wrap">
+        <button id="themeToggle" class="btn" title="Toggle theme" aria-label="Toggle theme">🌙</button>
+        <div class="conn status-pill" id="connStatus">Offline</div>
+        <div class="clock" id="clock">--:--</div>
+        <div class="weather" id="weather">Weather: —</div>
+      </div>
+    </header>
+
+    <!-- MAIN DASHBOARD -->
+    <main class="grid">
+
+      <!-- Door & Security -->
+      <section class="card">
+        <h3>🚪 Door & Security</h3>
+
+        <!-- Status -->
+        <div class="row">
+          <div>
+            <div class="label">Door Status</div>
+            <div class="pill locked" id="doorPill">Locked</div>
+          </div>
+          <div class="actions">
+            <button class="btn" data-pub="door/command" data-value="LOCK">Lock</button>
+            <button class="btn alt" data-pub="door/command" data-value="UNLOCK">Unlock</button>
+          </div>
+        </div>
+
+        <!-- RFID -->
+        <div class="rfid">
+          <div class="label">RFID Access</div>
+          <div class="rfid-result" id="rfidResult">Waiting for tag…</div>
+          <button class="btn" id="simulateRfid">Simulate RFID Scan</button>
+        </div>
+
+        <!-- OTP Fallback -->
+        <div class="otp-fallback">
+          <div class="label">OTP Fallback (if RFID fails)</div>
+          <div class="otp-row">
+            <button class="btn" id="sendOtp">Send OTP</button>
+            <input id="otpInput" placeholder="Enter OTP" maxlength="6" />
+            <button class="btn alt" id="verifyOtp">Verify</button>
+          </div>
+          <div class="otp-result" id="otpResult">Enter OTP only if RFID fails.</div>
+        </div>
+      </section>
+
+      <!-- Rooms -->
+      <section class="card">
+        <h3>🏡 Rooms Control</h3>
+        <div class="rooms">
+
+          <!-- Living Room -->
+          <div class="room">
+            <div class="room-title">Living Room</div>
+            <label class="switch">
+              <input type="checkbox" data-toggle="living/light" />
+              <span class="slider"></span>
+              <span class="switch-label">Light</span>
+            </label>
+            <label class="switch">
+              <input type="checkbox" data-toggle="living/fan" />
+              <span class="slider"></span>
+              <span class="switch-label">Fan</span>
+            </label>
+          </div>
+
+          <!-- Kitchen -->
+          <div class="room">
+            <div class="room-title">Kitchen</div>
+            <label class="switch">
+              <input type="checkbox" data-toggle="kitchen/light" />
+              <span class="slider"></span>
+              <span class="switch-label">Light</span>
+            </label>
+            <label class="switch">
+              <input type="checkbox" data-toggle="kitchen/fan" />
+              <span class="slider"></span>
+              <span class="switch-label">Fan</span>
+            </label>
+          </div>
+
+          <!-- Bedroom -->
+          <div class="room">
+            <div class="room-title">Bedroom</div>
+            <label class="switch">
+              <input type="checkbox" data-toggle="bedroom/light" />
+              <span class="slider"></span>
+              <span class="switch-label">Light</span>
+            </label>
+            <label class="switch">
+              <input type="checkbox" data-toggle="bedroom/fan" />
+              <span class="slider"></span>
+              <span class="switch-label">Fan</span>
+            </label>
+          </div>
+
+          <!-- Washroom -->
+          <div class="room">
+            <div class="room-title">Washroom</div>
+            <label class="switch">
+              <input type="checkbox" data-toggle="washroom/light" />
+              <span class="slider"></span>
+              <span class="switch-label">Light</span>
+            </label>
+            <label class="switch">
+              <input type="checkbox" data-toggle="washroom/fan" />
+              <span class="slider"></span>
+              <span class="switch-label">Fan</span>
+            </label>
+          </div>
+
+        </div>
+      </section>
+
+      <!-- Modes + Schedules -->
+      <section class="card">
+        <h3>🕹️ Modes + Schedules</h3>
+        <div class="modes">
+          <div class="chips">
+            <button class="chip" data-mode="day">Day</button>
+            <button class="chip" data-mode="away">Away</button>
+            <button class="chip" data-mode="night">Night</button>
+            <button class="chip panic" data-mode="panic">Panic</button>
+          </div>
+          <div class="schedule">
+            <div class="label">Start Time</div>
+            <input type="time" id="modeStart" />
+            <div class="label">Auto-Off at/under Temp (°C)</div>
+            <input type="number" id="autoOffTemp" min="10" max="45" value="26" />
+            <button class="btn" id="saveSchedule">Save</button>
+          </div>
+          <div class="hint" id="modeHint">Current: —</div>
+        </div>
+      </section>
+
+      <!-- Power Monitor -->
+      <section class="card">
+        <h3>⚡ Power Monitor</h3>
+        <div class="power-grid">
+          <div>
+            <div class="metric">
+              <div class="m-label">Voltage</div>
+              <div class="m-value"><span id="voltage">—</span> V</div>
+            </div>
+            <div class="metric">
+              <div class="m-label">Current</div>
+              <div class="m-value"><span id="current">—</span> A</div>
+            </div>
+            <div class="metric">
+              <div class="m-label">Power</div>
+              <div class="m-value"><span id="power">—</span> W</div>
+            </div>
+          </div>
+          <div>
+            <div class="metric">
+              <div class="m-label">kWh (today)</div>
+              <div class="m-value"><span id="kwh">0.000</span> kWh</div>
+            </div>
+            <div class="metric">
+              <div class="m-label">Tariff</div>
+              <div class="m-value">₹ <input id="tariff" type="number" value="7.0" step="0.1" class="tariff" /> /kWh</div>
+            </div>
+            <div class="metric">
+              <div class="m-label">Estimated Bill (month)</div>
+              <div class="m-value">₹ <span id="bill">—</span></div>
+            </div>
+          </div>
+        </div>
+        <canvas id="usageChart" height="120"></canvas>
+      </section>
+
+      <!-- Logs -->
+      <section class="card full">
+        <h3>📝 Usage Log</h3>
+        <div class="log-controls">
+          <button class="btn" id="exportLog">Export CSV</button>
+          <button class="btn alt" id="clearLog">Clear</button>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Time</th>
+                <th>Event</th>
+                <th>Detail</th>
+              </tr>
+            </thead>
+            <tbody id="logBody"></tbody>
+          </table>
+        </div>
+      </section>
+    </main>
+
+    <!-- FOOTER -->
+    <footer>
+      <span>MQTT: <code id="brokerLabel">wss://broker.hivemq.com:8884/mqtt</code></span>
+      <span>Temp: <code id="liveTemp">—</code> °C</span>
+    </footer>
+  </div>
+</body>
+</html>
